@@ -24,10 +24,7 @@ def fetch_view_counts(video_ids):
     """videos.list로 viewCount 가져오기"""
     if not video_ids:
         return {}
-    data = yt_get("videos", {
-        "part": "statistics",
-        "id": ",".join(video_ids)
-    })
+    data = yt_get("videos", {"part": "statistics", "id": ",".join(video_ids)})
     out = {}
     for it in data.get("items", []):
         out[it["id"]] = int(it.get("statistics", {}).get("viewCount", 0))
@@ -62,17 +59,16 @@ def search():
         "type": "video",
         "q": q,
         "maxResults": max_results,
-        "order": "viewCount",            # 조회수 순으로 변경
+        "order": "viewCount",        # ★ 조회수 순
         "safeSearch": "none",
     }
     if region:
         params["regionCode"] = region
-        # 한국 검색일 때 한국어 우선
         if region == "KR":
             params["relevanceLanguage"] = "ko"
 
     if duration in ("short", "long"):
-        params["videoDuration"] = duration   # 숏폼/롱폼 필터
+        params["videoDuration"] = duration
 
     data = yt_get("search", params)
     items_raw = data.get("items", [])
@@ -92,6 +88,8 @@ def search():
             "url": f"https://www.youtube.com/watch?v={vid}",
             "viewCount": vc_map.get(vid, 0)
         })
+    # 안전하게 한 번 더 정렬 (혹시 API가 순서를 바꿔돌릴 때 대비)
+    items.sort(key=lambda x: x["viewCount"], reverse=True)
     return jsonify({"items": items})
 
 
@@ -122,6 +120,7 @@ def trending():
             "url": f"https://www.youtube.com/watch?v={vid}",
             "viewCount": int(st.get("viewCount", 0))
         })
+    items.sort(key=lambda x: x["viewCount"], reverse=True)
     return jsonify({"items": items})
 
 
@@ -139,7 +138,7 @@ def weekly():
     params = {
         "part": "snippet",
         "type": "video",
-        "order": "viewCount",          # 지난 7일 내 조회수 상위
+        "order": "viewCount",      # 지난 7일 내 조회수 상위
         "maxResults": max_results,
         "regionCode": region,
         "publishedAfter": published_after,
@@ -169,6 +168,7 @@ def weekly():
             "url": f"https://www.youtube.com/watch?v={vid}",
             "viewCount": vc_map.get(vid, 0)
         })
+    items.sort(key=lambda x: x["viewCount"], reverse=True)
     return jsonify({"items": items})
 
 
