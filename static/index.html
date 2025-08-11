@@ -28,36 +28,46 @@
 
 <script>
 const $ = s => document.querySelector(s);
+const list = $("#list");
+const note = $("#note");
+const input = $("#q");
 
-$("#go").onclick = async ()=>{
-  const q = $("#q").value.trim();
-  if(!q){ alert("검색어를 입력하세요"); return; }
-  $("#note").textContent = "조회 중...";
-  $("#list").innerHTML = "";
-
-  try{
+async function runSearch() {
+  const q = input.value.trim();
+  if (!q) { alert("검색어를 입력하세요"); return; }
+  note.textContent = "조회 중...";
+  list.innerHTML = "";
+  try {
     const r = await fetch(`/search?q=${encodeURIComponent(q)}`);
     const data = await r.json();
-    if(data.error){ $("#note").textContent = data.error; return; }
+    if (data.error) { note.textContent = data.error; return; }
     const items = data.items || [];
-    $("#note").textContent = `결과 ${items.length}건`;
+    note.textContent = `결과 ${items.length}건`;
+    if (items.length === 0) {
+      list.innerHTML = "<div class='muted'>결과가 없습니다.</div>";
+      return;
+    }
     items.forEach(it=>{
-      const div = document.createElement("div");
-      div.className = "card";
-      div.innerHTML = `
+      const card = document.createElement("div");
+      card.className = "card";
+      card.innerHTML = `
         <img src="${it.thumb}" alt="">
         <div>
           <div class="title"><a href="${it.url}" target="_blank">${it.title}</a></div>
-          <div class="muted">${new Date(it.publishedAt).toLocaleString()} · ${it.channel}</div>
+          <div class="muted">
+            ${new Date(it.publishedAt).toLocaleString()} · ${it.channel}
+            ${typeof it.viewCount==='number' ? ` · 조회수 ${it.viewCount.toLocaleString()}` : ""}
+          </div>
           <div><a href="${it.url}" target="_blank">영상 열기</a></div>
         </div>`;
-      $("#list").appendChild(div);
+      list.appendChild(card);
     });
-  }catch(e){
-    $("#note").textContent = "오류가 발생했습니다.";
+  } catch (e) {
+    note.textContent = "오류가 발생했습니다.";
   }
-};
+}
+$("#go").onclick = runSearch;
+input.addEventListener("keydown", e=>{ if(e.key==="Enter") runSearch(); });
 </script>
 </body>
 </html>
-
