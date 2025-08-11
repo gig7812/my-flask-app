@@ -1,132 +1,176 @@
-<!doctype html>
-<html lang="ko">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>YouTube 키워드 검색</title>
-<style>
-  body{font-family:system-ui,Arial,sans-serif;background:#0b0f14;color:#e8eef6;margin:0;padding:24px}
-  h1{margin:0 0 12px}
-  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-  .bar{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 12px}
-  input,button,select{padding:10px;border-radius:10px;border:1px solid #2a3347;background:#0f1520;color:#e8eef6}
-  button{cursor:pointer}
-  .tab{padding:8px 12px;border-radius:10px;border:1px solid #2a3347;background:#0f1520;cursor:pointer}
-  .tab.active{background:#1b2433;border-color:#3a4b6b}
-  .card{display:flex;gap:12px;align-items:flex-start;background:#111826;border:1px solid #1e2633;border-radius:12px;padding:12px;margin:10px 0}
-  img{width:160px;height:90px;object-fit:cover;border-radius:8px}
-  .title{font-weight:600;margin:0 0 6px}
-  a{color:#93c5fd;text-decoration:none}
-  .muted{color:#9fb3c8;font-size:12px}
-</style>
-</head>
-<body>
-  <h1>🔎 YouTube 키워드 검색</h1>
+from flask import Flask, request, jsonify, send_from_directory
+import os
+import requests
+import datetime as dt
 
-  <!-- 모드 탭 + 국가 선택 -->
-  <div class="row">
-    <button class="tab active" id="tab-search">검색</button>
-    <button class="tab" id="tab-trending">실시간</button>
-    <button class="tab" id="tab-weekly">주간</button>
+app = Flask(__name__, static_url_path="", static_folder="static")
 
-    <select id="region">
-      <option value="KR">국내(KR)</option>
-      <option value="US">글로벌(US)</option>
-      <option value="JP">일본(JP)</option>
-      <option value="IN">인도(IN)</option>
-      <option value="GB">영국(GB)</option>
-    </select>
-  </div>
+YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
+YT_BASE = "https://www.googleapis.com/youtube/v3"
 
-  <!-- 키워드 입력/버튼 -->
-  <div class="bar" id="searchbar">
-    <input id="q" placeholder="예: 쇼핑 / AI / 드라마" style="flex:1">
-    <button id="go">검색</button>
-  </div>
 
-  <div id="note" class="muted"></div>
-  <div id="list"></div>
+# ----------------- 공용 유틸 -----------------
+def yt_get(path, params):
+    if not YOUTUBE_API_KEY:
+        raise RuntimeError("YOUTUBE_API_KEY is not set")
+    p = dict(params or {})
+    p["key"] = YOUTUBE_API_KEY
+    r = requests.get(f"{YT_BASE}/{path}", params=p, timeout=20)
+    r.raise_for_status()
+    return r.json()
 
-<script>
-const $  = s => document.querySelector(s);
-const tabSearch   = $("#tab-search");
-const tabTrending = $("#tab-trending");
-const tabWeekly   = $("#tab-weekly");
-const regionSel   = $("#region");
-const qInput      = $("#q");
-const btnGo       = $("#go");
-const note        = $("#note");
-const list        = $("#list");
 
-let mode = "search"; // search | trending | weekly
+def fetch_view_counts(video_ids):
+    """videos.list로 viewCount 가져오기"""
+    if not video_ids:
+        return {}
+    data = yt_get("videos", {
+        "part": "statistics",
+        "id": ",".join(video_ids)
+    })
+    out = {}
+    for it in data.get("items", []):
+        out[it["id"]] = int(it.get("statistics", {}).get("viewCount", 0))
+    return out
 
-function setMode(m){
-  mode = m; 
-  // 탭 스타일
-  [tabSearch,tabTrending,tabWeekly].forEach(el=>el.classList.remove("active"));
-  (mode==="search"?tabSearch: mode==="trending"?tabTrending:tabWeekly).classList.add("active");
-  // 검색바 보이기/숨기기
-  $("#searchbar").style.display = (mode==="trending") ? "none" : "flex";
-  // 안내 초기화
-  list.innerHTML = "";
-  note.textContent = "";
-}
 
-tabSearch.onclick   = ()=> setMode("search");
-tabTrending.onclick = ()=> setMode("trending");
-tabWeekly.onclick   = ()=> setMode("weekly");
+# ----------------- 헬스체크/정적 -----------------
+@app.route("/health")
+def health():
+    return "ok", 200
 
-btnGo.onclick = run;
-qInput.addEventListener("keydown", e=>{ if(e.key==="Enter") run(); });
 
-async function run(){
-  const r = regionSel.value;
-  const q = qInput.value.trim();
-  list.innerHTML = "";
-  note.textContent = "조회 중...";
+@app.route("/")
+def home():
+    return send_from_directory("static", "index.html")
 
-  try{
-    let url = "";
-    if(mode==="search"){
-      if(!q){ alert("검색어를 입력하세요"); note.textContent=""; return; }
-      url = `/search?q=${encodeURIComponent(q)}&region=${encodeURIComponent(r)}`;
-    }else if(mode==="trending"){
-      url = `/trending?region=${encodeURIComponent(r)}`;
-    }else{ // weekly
-      url = `/weekly?region=${encodeURIComponent(r)}${q?`&q=${encodeURIComponent(q)}`:""}`;
+
+# ----------------- 검색 (국가/숏폼·롱폼/50개) -----------------
+# 예) /search?q=정치&region=KR&duration=any|short|long
+@app.route("/search")
+def search():
+    q = (request.args.get("q") or "").strip()
+    region = (request.args.get("region") or "").upper().strip()
+    duration = (request.args.get("duration") or "any").lower()  # any|short|long
+    max_results = min(int(request.args.get("max", 50)), 50)
+
+    if not q:
+        return jsonify({"items": []})
+
+    params = {
+        "part": "snippet",
+        "type": "video",
+        "q": q,
+        "maxResults": max_results,
+        "order": "relevance",              # 키워드 일치도 우선
+        "safeSearch": "none",
     }
+    if region:
+        params["regionCode"] = region
+        # 한국 검색일 때 한국어 우선
+        if region == "KR":
+            params["relevanceLanguage"] = "ko"
 
-    const res = await fetch(url);
-    const data = await res.json();
-    if(data.error){ note.textContent = data.error; return; }
+    if duration in ("short", "long"):
+        params["videoDuration"] = duration   # 숏폼/롱폼 필터
 
-    const items = data.items || [];
-    note.textContent = `결과 ${items.length}건`;
-    if(items.length===0){ list.innerHTML = "<div class='muted'>결과가 없습니다.</div>"; return; }
+    data = yt_get("search", params)
+    items_raw = data.get("items", [])
+    video_ids = [it["id"]["videoId"] for it in items_raw if it["id"].get("videoId")]
 
-    items.forEach(it=>{
-      const card = document.createElement("div");
-      card.className = "card";
-      card.innerHTML = `
-        <img src="${it.thumb}" alt="">
-        <div>
-          <div class="title"><a href="${it.url}" target="_blank">${it.title}</a></div>
-          <div class="muted">
-            ${new Date(it.publishedAt).toLocaleString()} · ${it.channel}
-            ${typeof it.viewCount==='number' ? ` · 조회수 ${it.viewCount.toLocaleString()}` : ""}
-          </div>
-          <div><a href="${it.url}" target="_blank">영상 열기</a></div>
-        </div>`;
-      list.appendChild(card);
-    });
+    vc_map = fetch_view_counts(video_ids)
 
-  }catch(e){
-    note.textContent = "오류가 발생했습니다.";
-  }
-}
+    items = []
+    for it in items_raw:
+        vid = it["id"]["videoId"]
+        sn = it["snippet"]
+        items.append({
+            "title": sn["title"],
+            "channel": sn["channelTitle"],
+            "publishedAt": sn["publishedAt"],
+            "thumb": sn["thumbnails"]["medium"]["url"],
+            "url": f"https://www.youtube.com/watch?v={vid}",
+            "viewCount": vc_map.get(vid, 0)
+        })
+    return jsonify({"items": items})
 
-// 기본: 검색 모드 활성화
-setMode("search");
-</script>
-</body>
-</html>
+
+# ----------------- 실시간 랭킹 (국가/50개) -----------------
+# 예) /trending?region=KR
+@app.route("/trending")
+def trending():
+    region = (request.args.get("region") or "KR").upper().strip()
+    max_results = min(int(request.args.get("max", 50)), 50)
+
+    data = yt_get("videos", {
+        "part": "snippet,statistics",
+        "chart": "mostPopular",
+        "regionCode": region,
+        "maxResults": max_results,
+    })
+
+    items = []
+    for it in data.get("items", []):
+        vid = it["id"]
+        sn = it["snippet"]
+        st = it.get("statistics", {})
+        items.append({
+            "title": sn["title"],
+            "channel": sn["channelTitle"],
+            "publishedAt": sn["publishedAt"],
+            "thumb": sn["thumbnails"]["medium"]["url"],
+            "url": f"https://www.youtube.com/watch?v={vid}",
+            "viewCount": int(st.get("viewCount", 0))
+        })
+    return jsonify({"items": items})
+
+
+# ----------------- 주간 랭킹 (최근7일/국가/옵션:키워드/숏폼·롱폼/50개) -----------------
+# 예) /weekly?region=KR&q=정치&duration=any|short|long
+@app.route("/weekly")
+def weekly():
+    region = (request.args.get("region") or "KR").upper().strip()
+    q = (request.args.get("q") or "").strip()
+    duration = (request.args.get("duration") or "any").lower()
+    max_results = min(int(request.args.get("max", 50)), 50)
+
+    published_after = (dt.datetime.utcnow() - dt.timedelta(days=7)).isoformat("T") + "Z"
+
+    params = {
+        "part": "snippet",
+        "type": "video",
+        "order": "viewCount",          # 지난 7일 내 조회수 상위
+        "maxResults": max_results,
+        "regionCode": region,
+        "publishedAfter": published_after,
+        "safeSearch": "none",
+    }
+    if q:
+        params["q"] = q
+        if region == "KR":
+            params["relevanceLanguage"] = "ko"
+    if duration in ("short", "long"):
+        params["videoDuration"] = duration
+
+    data = yt_get("search", params)
+    items_raw = data.get("items", [])
+    video_ids = [it["id"]["videoId"] for it in items_raw if it["id"].get("videoId")]
+    vc_map = fetch_view_counts(video_ids)
+
+    items = []
+    for it in items_raw:
+        vid = it["id"]["videoId"]
+        sn = it["snippet"]
+        items.append({
+            "title": sn["title"],
+            "channel": sn["channelTitle"],
+            "publishedAt": sn["publishedAt"],
+            "thumb": sn["thumbnails"]["medium"]["url"],
+            "url": f"https://www.youtube.com/watch?v={vid}",
+            "viewCount": vc_map.get(vid, 0)
+        })
+    return jsonify({"items": items})
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
