@@ -1,148 +1,167 @@
 <!doctype html>
 <html lang="ko">
 <head>
-  <meta charset="utf-8"/>
-  <title>YouTube 키워드 검색</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <style>
-    body{background:#0b0f14;color:#e7eef7;font-family:system-ui,Arial,sans-serif;margin:0}
-    .wrap{max-width:1100px;margin:26px auto;padding:0 16px}
-    h1{font-weight:800;font-size:28px;margin:0 0 18px}
-    .tabs{display:flex;gap:8px;margin-bottom:10px}
-    .tabs button{background:#101722;border:1px solid #1f2a3a;color:#e7eef7;padding:8px 14px;border-radius:10px;cursor:pointer}
-    .tabs button.active{background:#1c2738}
-    .bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
-    input,select{background:#0e1621;color:#e7eef7;border:1px solid #233149;padding:10px;border-radius:10px}
-    .btn{background:#19314d;border:1px solid #2a4667;color:#d7e3f7;padding:10px 16px;border-radius:10px;cursor:pointer}
-    .card{background:#0e1621;border:1px solid #1f2a3a;border-radius:12px;padding:12px;margin:10px 0}
-    .row{display:flex;gap:12px}
-    .thumb{width:168px;height:94px;background:#111;border-radius:8px;flex:0 0 168px;object-fit:cover}
-    .title{font-size:16px;font-weight:700;margin:2px 0 8px}
-    .meta{color:#9fb0c2;font-size:13px}
-    .link{color:#9bd3ff;text-decoration:none}
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>YouTube 키워드 검색</title>
+<style>
+  body{background:#0b1016;color:#d7e2ee;font-family:system-ui,Arial,sans-serif;margin:0}
+  header{padding:22px 16px 10px;display:flex;gap:10px;align-items:center}
+  h1{font-size:22px;margin:0}
+  .pill{background:#16202a;border:1px solid #243242;color:#cfe9ff;border-radius:999px;padding:8px 14px;cursor:pointer}
+  .pill.active{background:#1f3a56;border-color:#3e6b97}
+  .bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:0 16px 14px}
+  input,select,button{background:#13202b;border:1px solid #294152;color:#e8f2ff;border-radius:8px;padding:10px 12px}
+  input{min-width:260px;flex:1}
+  button.run{background:#2a66a1;border-color:#2f78c0}
+  #note{color:#90a4b7;font-size:12px;margin:8px 16px}
+  .card{margin:10px 16px;background:#111923;border:1px solid #1b2a3a;border-radius:12px;padding:10px;display:flex;gap:14px}
+  .thumb{width:220px;aspect-ratio:16/9;object-fit:cover;border-radius:8px;background:#0d141c}
+  .meta{display:flex;flex-direction:column;gap:6px}
+  .title{font-size:18px}
+  a.open{color:#9fd0ff;text-decoration:none;border-bottom:1px dotted #3e6b97}
+  .chips{display:flex;gap:8px;flex-wrap:wrap}
+</style>
 </head>
 <body>
-<div class="wrap">
+
+<header>
   <h1>🔎 YouTube 키워드 검색</h1>
+</header>
 
-  <div class="tabs">
-    <button id="tab-search" class="active">검색</button>
-    <button id="tab-weekly">주간</button>
-    <button id="tab-realtime">실시간 증가량</button>
-  </div>
+<div class="bar">
+  <button class="pill" id="btnSearch">검색</button>
+  <button class="pill active" id="btnTrend">실시간</button>
+  <button class="pill" id="btnWeekly">주간</button>
 
-  <div class="bar">
-    <select id="region">
-      <option value="">글로벌(US)</option>
-      <option value="KR" selected>국내(KR)</option>
-      <option value="US">US</option>
-      <option value="JP">JP</option>
-      <option value="GB">GB</option>
-    </select>
+  <select id="region">
+    <option value="">글로벌(US)</option>
+    <option value="KR">국내(KR)</option>
+    <option value="JP">일본(JP)</option>
+    <option value="US">미국(US)</option>
+    <option value="GB">영국(GB)</option>
+  </select>
 
-    <select id="duration">
-      <option value="any" selected>전체</option>
-      <option value="short">숏폼(YouTube 기준)</option>
-      <option value="long">롱폼(YouTube 기준)</option>
-    </select>
+  <select id="duration">
+    <option value="any">전체</option>
+    <option value="short">숏폼(&lt;=4m)</option>
+    <option value="long">롱폼(&gt;4m)</option>
+  </select>
 
-    <input id="q" placeholder="예: 쇼핑 / AI / 드라마" style="flex:1"/>
-
-    <input id="days" type="number" min="0" max="365" value="5" title="기간(일) – 0은 제한없음"/>
-    <input id="max" type="number" min="1" max="50" value="50" title="개수(최대50)"/>
-
-    <input id="window" type="number" min="5" max="360" value="60" title="실시간 증가량: 지난 N분"/>
-
-    <button class="btn" id="btn-run">실행</button>
-  </div>
-
-  <div id="note" class="meta" style="margin:6px 0 12px"></div>
-  <div id="list"></div>
+  <input id="q" placeholder="예: 쇼핑 / AI / 드라마" />
+  <label>기간(days):
+    <input id="days" type="number" min="0" value="5" style="width:70px" />
+  </label>
+  <label>개수:
+    <input id="max" type="number" min="1" max="50" value="50" style="width:70px" />
+  </label>
+  <button class="run" id="run">실행</button>
 </div>
 
+<div id="note"></div>
+<div id="list"></div>
+
 <script>
-let mode = "search"; // search | weekly | realtime
+const $ = s => document.querySelector(s);
+const btns = {search: $('#btnSearch'), trend: $('#btnTrend'), weekly: $('#btnWeekly')};
+let mode = 'trending'; // trending | search | weekly
 
-document.getElementById('tab-search').onclick = () => { mode='search'; setActive(); };
-document.getElementById('tab-weekly').onclick = () => { mode='weekly'; setActive(); };
-document.getElementById('tab-realtime').onclick = () => { mode='realtime'; setActive(); };
-
-function setActive(){
-  for(const id of ['tab-search','tab-weekly','tab-realtime']){
-    document.getElementById(id).classList.remove('active');
-  }
-  document.getElementById('tab-'+mode).classList.add('active');
-  document.getElementById('note').textContent = '';
-  document.getElementById('list').innerHTML = '';
+function setMode(m){
+  mode = m;
+  for (const k in btns) btns[k].classList.remove('active');
+  if (m==='search') btns.search.classList.add('active');
+  if (m==='trending') btns.trend.classList.add('active');
+  if (m==='weekly') btns.weekly.classList.add('active');
+  $('#note').textContent = '';
+  $('#list').innerHTML = '';
 }
 
-document.getElementById('btn-run').onclick = async ()=>{
-  const region   = document.getElementById('region').value.trim();
-  const duration = document.getElementById('duration').value;
-  const q        = document.getElementById('q').value.trim();
-  const days     = parseInt(document.getElementById('days').value||'0',10);
-  const max      = parseInt(document.getElementById('max').value||'50',10);
-  const windowM  = parseInt(document.getElementById('window').value||'60',10);
+btns.search.onclick  = ()=> setMode('search');
+btns.trend.onclick   = ()=> setMode('trending');
+btns.weekly.onclick  = ()=> setMode('weekly');
 
-  try{
-    let url = '';
-    if(mode==='search'){
-      const params = new URLSearchParams({q, duration, max});
-      if(region) params.set('region', region);
-      if(days>0) params.set('days', String(days));
-      url = `/search?${params.toString()}`;
-    }else if(mode==='weekly'){
-      const params = new URLSearchParams({q, duration, max, days:String(days||7)});
-      if(region) params.set('region', region);
-      url = `/weekly?${params.toString()}`;
-    }else{ // realtime
-      const params = new URLSearchParams({window:String(windowM), max});
-      params.set('region', region || 'KR');
-      url = `/realtime?${params.toString()}`;
-    }
+$('#run').onclick = async ()=>{
+  const q = $('#q').value.trim();
+  const region = $('#region').value;
+  const duration = $('#duration').value;
+  const days = parseInt($('#days').value||'0',10);
+  const max = Math.min(50, Math.max(1, parseInt($('#max').value||'50',10)));
 
+  let url = '';
+  if (mode==='trending') {
+    url = `/trending?region=${encodeURIComponent(region||'KR')}&max=${max}`;
+  } else if (mode==='weekly') {
+    const qs = new URLSearchParams({
+      region: region || 'KR',
+      q,
+      duration,
+      days: String(days || 7),
+      max: String(max),
+    });
+    url = `/weekly?${qs.toString()}`;
+  } else {
+    // search
+    const qs = new URLSearchParams({
+      q,
+      region: region,
+      duration,
+      days: String(days || 0),
+      max: String(max),
+    });
+    url = `/search?${qs.toString()}`;
+  }
+
+  $('#note').textContent = '불러오는 중...';
+  $('#list').innerHTML = '';
+  try {
     const res = await fetch(url);
     const data = await res.json();
-    render(data.items || []);
-  }catch(e){
-    document.getElementById('note').textContent = '에러: ' + e.message;
+
+    if (data.error) {
+      $('#note').textContent = 'API 오류: ' + (JSON.stringify(data.error));
+      return;
+    }
+    $('#note').textContent = `결과 ${data.items.length}건 (최대 ${max}개)`;
+
+    render(data.items||[]);
+  } catch (e) {
+    $('#note').textContent = '요청 실패: ' + e;
   }
 };
 
 function render(items){
-  const list = document.getElementById('list');
+  const list = $('#list');
   list.innerHTML = '';
-  if(!items.length){
-    document.getElementById('note').textContent = '결과 0건 (최대 50개)';
-    return;
-  }
-  document.getElementById('note').textContent = `결과 ${items.length}건 (최대 50개)`;
-  for(const it of items){
-    const el = document.createElement('div');
-    el.className = 'card';
-    el.innerHTML = `
-      <div class="row">
-        <img class="thumb" src="${it.thumb || ''}" alt="">
-        <div>
-          <div class="title">${escapeHtml(it.title||'')}</div>
-          <div class="meta">
-            채널: ${escapeHtml(it.channel||'')} 
-            ${it.viewCount!=null ? `· 조회수: ${n(it.viewCount)}` : ''}
-            ${it.delta!=null ? `· 증가량(최근): +${n(it.delta)}` : ''}
-          </div>
-          <div class="meta">
-            <a class="link" href="${it.url}" target="_blank">영상 열기 ↗</a>
-          </div>
+  for (const v of items) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <img class="thumb" src="${v.thumb||''}" alt="">
+      <div class="meta">
+        <div class="title">${escapeHtml(v.title||'')}</div>
+        <div class="chips">
+          <span>채널: ${escapeHtml(v.channel||'')}</span>
+          <span>업로드: ${escapeHtml(v.publishedAt||'')}</span>
+          <span>조회수: ${Number(v.viewCount||0).toLocaleString()}</span>
+          <a class="open" href="${v.url||'#'}" target="_blank" rel="noopener">영상 열기 ↗</a>
         </div>
       </div>
     `;
-    list.appendChild(el);
+    list.appendChild(card);
   }
 }
 
-function n(x){ try{ return Number(x).toLocaleString('ko-KR'); }catch{ return x; } }
-function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+function escapeHtml(s){
+  return (s||'').replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+}
+
+// 초기: 실시간(국내) 50개
+$('#region').value = 'KR';
+$('#max').value = 50;
+setMode('trending');
+$('#run').click();
 </script>
 </body>
 </html>
