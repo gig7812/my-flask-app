@@ -7,9 +7,12 @@
 <style>
   body{font-family:system-ui,Arial,sans-serif;background:#0b0f14;color:#e8eef6;margin:0;padding:24px}
   h1{margin:0 0 12px}
-  .bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
-  input,button{padding:10px;border-radius:10px;border:1px solid #2a3347;background:#0f1520;color:#e8eef6}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .bar{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 12px}
+  input,button,select{padding:10px;border-radius:10px;border:1px solid #2a3347;background:#0f1520;color:#e8eef6}
   button{cursor:pointer}
+  .tab{padding:8px 12px;border-radius:10px;border:1px solid #2a3347;background:#0f1520;cursor:pointer}
+  .tab.active{background:#1b2433;border-color:#3a4b6b}
   .card{display:flex;gap:12px;align-items:flex-start;background:#111826;border:1px solid #1e2633;border-radius:12px;padding:12px;margin:10px 0}
   img{width:160px;height:90px;object-fit:cover;border-radius:8px}
   .title{font-weight:600;margin:0 0 6px}
@@ -19,34 +22,88 @@
 </head>
 <body>
   <h1>🔎 YouTube 키워드 검색</h1>
-  <div class="bar">
+
+  <!-- 모드 탭 + 국가 선택 -->
+  <div class="row">
+    <button class="tab active" id="tab-search">검색</button>
+    <button class="tab" id="tab-trending">실시간</button>
+    <button class="tab" id="tab-weekly">주간</button>
+
+    <select id="region">
+      <option value="KR">국내(KR)</option>
+      <option value="US">글로벌(US)</option>
+      <option value="JP">일본(JP)</option>
+      <option value="IN">인도(IN)</option>
+      <option value="GB">영국(GB)</option>
+    </select>
+  </div>
+
+  <!-- 키워드 입력/버튼 -->
+  <div class="bar" id="searchbar">
     <input id="q" placeholder="예: 쇼핑 / AI / 드라마" style="flex:1">
     <button id="go">검색</button>
   </div>
+
   <div id="note" class="muted"></div>
   <div id="list"></div>
 
 <script>
-const $ = s => document.querySelector(s);
-const list = $("#list");
-const note = $("#note");
-const input = $("#q");
+const $  = s => document.querySelector(s);
+const tabSearch   = $("#tab-search");
+const tabTrending = $("#tab-trending");
+const tabWeekly   = $("#tab-weekly");
+const regionSel   = $("#region");
+const qInput      = $("#q");
+const btnGo       = $("#go");
+const note        = $("#note");
+const list        = $("#list");
 
-async function runSearch() {
-  const q = input.value.trim();
-  if (!q) { alert("검색어를 입력하세요"); return; }
-  note.textContent = "조회 중...";
+let mode = "search"; // search | trending | weekly
+
+function setMode(m){
+  mode = m; 
+  // 탭 스타일
+  [tabSearch,tabTrending,tabWeekly].forEach(el=>el.classList.remove("active"));
+  (mode==="search"?tabSearch: mode==="trending"?tabTrending:tabWeekly).classList.add("active");
+  // 검색바 보이기/숨기기
+  $("#searchbar").style.display = (mode==="trending") ? "none" : "flex";
+  // 안내 초기화
   list.innerHTML = "";
-  try {
-    const r = await fetch(`/search?q=${encodeURIComponent(q)}`);
-    const data = await r.json();
-    if (data.error) { note.textContent = data.error; return; }
+  note.textContent = "";
+}
+
+tabSearch.onclick   = ()=> setMode("search");
+tabTrending.onclick = ()=> setMode("trending");
+tabWeekly.onclick   = ()=> setMode("weekly");
+
+btnGo.onclick = run;
+qInput.addEventListener("keydown", e=>{ if(e.key==="Enter") run(); });
+
+async function run(){
+  const r = regionSel.value;
+  const q = qInput.value.trim();
+  list.innerHTML = "";
+  note.textContent = "조회 중...";
+
+  try{
+    let url = "";
+    if(mode==="search"){
+      if(!q){ alert("검색어를 입력하세요"); note.textContent=""; return; }
+      url = `/search?q=${encodeURIComponent(q)}&region=${encodeURIComponent(r)}`;
+    }else if(mode==="trending"){
+      url = `/trending?region=${encodeURIComponent(r)}`;
+    }else{ // weekly
+      url = `/weekly?region=${encodeURIComponent(r)}${q?`&q=${encodeURIComponent(q)}`:""}`;
+    }
+
+    const res = await fetch(url);
+    const data = await res.json();
+    if(data.error){ note.textContent = data.error; return; }
+
     const items = data.items || [];
     note.textContent = `결과 ${items.length}건`;
-    if (items.length === 0) {
-      list.innerHTML = "<div class='muted'>결과가 없습니다.</div>";
-      return;
-    }
+    if(items.length===0){ list.innerHTML = "<div class='muted'>결과가 없습니다.</div>"; return; }
+
     items.forEach(it=>{
       const card = document.createElement("div");
       card.className = "card";
@@ -62,12 +119,14 @@ async function runSearch() {
         </div>`;
       list.appendChild(card);
     });
-  } catch (e) {
+
+  }catch(e){
     note.textContent = "오류가 발생했습니다.";
   }
 }
-$("#go").onclick = runSearch;
-input.addEventListener("keydown", e=>{ if(e.key==="Enter") runSearch(); });
+
+// 기본: 검색 모드 활성화
+setMode("search");
 </script>
 </body>
 </html>
