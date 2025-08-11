@@ -9,16 +9,19 @@ YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 YT_BASE = "https://www.googleapis.com/youtube/v3"
 
 
-# ---------- 공용 유틸 ----------
+# ----------------- 공용 유틸 -----------------
 def yt_get(path, params):
-    params = dict(params or {})
-    params["key"] = YOUTUBE_API_KEY
-    r = requests.get(f"{YT_BASE}/{path}", params=params, timeout=20)
+    if not YOUTUBE_API_KEY:
+        raise RuntimeError("YOUTUBE_API_KEY is not set")
+    p = dict(params or {})
+    p["key"] = YOUTUBE_API_KEY
+    r = requests.get(f"{YT_BASE}/{path}", params=p, timeout=20)
     r.raise_for_status()
     return r.json()
 
+
 def fetch_view_counts(video_ids):
-    """videos.list로 조회수 가져오기"""
+    """videos.list로 viewCount 가져오기"""
     if not video_ids:
         return {}
     data = yt_get("videos", {
@@ -27,44 +30,49 @@ def fetch_view_counts(video_ids):
     })
     out = {}
     for it in data.get("items", []):
-        st = it.get("statistics", {})
-        out[it["id"]] = int(st.get("viewCount", 0))
+        out[it["id"]] = int(it.get("statistics", {}).get("viewCount", 0))
     return out
 
 
-# ---------- 헬스체크 ----------
+# ----------------- 헬스체크/정적 -----------------
 @app.route("/health")
 def health():
     return "ok", 200
 
 
-# ---------- 정적 페이지 ----------
 @app.route("/")
 def home():
     return send_from_directory("static", "index.html")
 
 
-# ---------- 키워드 검색 (국가 구분 지원, 결과에 viewCount 포함) ----------
-# 예: /search?q=정치&region=KR
+# ----------------- 검색 (국가/숏폼·롱폼/50개) -----------------
+# 예) /search?q=정치&region=KR&duration=any|short|long
 @app.route("/search")
 def search():
-    if not YOUTUBE_API_KEY:
-        return jsonify({"error": "YOUTUBE_API_KEY is not set"}), 500
-
     q = (request.args.get("q") or "").strip()
-    region = (request.args.get("region") or "").upper().strip()  # 예: KR, US, JP...
+    region = (request.args.get("region") or "").upper().strip()
+    duration = (request.args.get("duration") or "any").lower()  # any|short|long
+    max_results = min(int(request.args.get("max", 50)), 50)
+
     if not q:
         return jsonify({"items": []})
 
     params = {
         "part": "snippet",
-        "q": q,
         "type": "video",
-        "order": "viewCount",
-        "maxResults": 10
+        "q": q,
+        "maxResults": max_results,
+        "order": "viewCount",            # 조회수 순으로 변경
+        "safeSearch": "none",
     }
     if region:
         params["regionCode"] = region
+        # 한국 검색일 때 한국어 우선
+        if region == "KR":
+            params["relevanceLanguage"] = "ko"
+
+    if duration in ("short", "long"):
+        params["videoDuration"] = duration   # 숏폼/롱폼 필터
 
     data = yt_get("search", params)
     items_raw = data.get("items", [])
@@ -87,20 +95,18 @@ def search():
     return jsonify({"items": items})
 
 
-# ---------- 실시간(국가별 트렌딩) ----------
-# 예: /trending?region=KR
+# ----------------- 실시간 랭킹 (국가/50개) -----------------
+# 예) /trending?region=KR
 @app.route("/trending")
 def trending():
-    if not YOUTUBE_API_KEY:
-        return jsonify({"error": "YOUTUBE_API_KEY is not set"}), 500
-
-    region = (request.args.get("region") or "KR").upper()
+    region = (request.args.get("region") or "KR").upper().strip()
+    max_results = min(int(request.args.get("max", 50)), 50)
 
     data = yt_get("videos", {
         "part": "snippet,statistics",
         "chart": "mostPopular",
         "regionCode": region,
-        "maxResults": 10
+        "maxResults": max_results,
     })
 
     items = []
@@ -119,27 +125,32 @@ def trending():
     return jsonify({"items": items})
 
 
-# ---------- 주간 랭킹(최근 7일 업로드 + 조회수순, 국가/키워드 옵션) ----------
-# 예: /weekly?region=KR&q=정치   (q는 선택)
+# ----------------- 주간 랭킹 (최근7일/국가/옵션:키워드/숏폼·롱폼/50개) -----------------
+# 예) /weekly?region=KR&q=정치&duration=any|short|long
 @app.route("/weekly")
 def weekly():
-    if not YOUTUBE_API_KEY:
-        return jsonify({"error": "YOUTUBE_API_KEY is not set"}), 500
-
-    region = (request.args.get("region") or "KR").upper()
+    region = (request.args.get("region") or "KR").upper().strip()
     q = (request.args.get("q") or "").strip()
+    duration = (request.args.get("duration") or "any").lower()
+    max_results = min(int(request.args.get("max", 50)), 50)
+
     published_after = (dt.datetime.utcnow() - dt.timedelta(days=7)).isoformat("T") + "Z"
 
     params = {
         "part": "snippet",
         "type": "video",
-        "order": "viewCount",
-        "maxResults": 10,
+        "order": "viewCount",          # 지난 7일 내 조회수 상위
+        "maxResults": max_results,
         "regionCode": region,
-        "publishedAfter": published_after
+        "publishedAfter": published_after,
+        "safeSearch": "none",
     }
     if q:
         params["q"] = q
+        if region == "KR":
+            params["relevanceLanguage"] = "ko"
+    if duration in ("short", "long"):
+        params["videoDuration"] = duration
 
     data = yt_get("search", params)
     items_raw = data.get("items", [])
