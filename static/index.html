@@ -3,187 +3,209 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>YouTube 키워드 검색</title>
+  <title>YouTube 키워드/랭킹 대시보드</title>
   <style>
-    body { background:#0b1218; color:#dfe6ee; font-family:system-ui, -apple-system, Segoe UI, Roboto, Arial; margin:0; }
-    .wrap { max-width:1080px; margin:28px auto; padding:0 16px; }
-    h1 { font-size:28px; margin:0 0 16px 0; display:flex; gap:8px; align-items:center; }
-    .pill { display:inline-flex; gap:8px; margin:12px 0 20px 0; }
-    .pill button { background:#12202b; color:#dfe6ee; border:1px solid #1c2b38; padding:8px 12px;
-                   border-radius:10px; cursor:pointer; }
-    .pill button.active { background:#0ea5e9; border-color:#0ea5e9; color:#061017; }
-    .bar { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; }
-    input, select { background:#0f1a22; border:1px solid #1c2b38; color:#dfe6ee;
-                    padding:10px 12px; border-radius:10px; }
-    input[type="number"] { width:80px; }
-    #go { background:#0ea5e9; border: none; color: #061017; font-weight:600; }
-    .muted { color:#7d8b99; font-size:12px; }
-    .grid { display:grid; gap:12px; }
-    .card { display:grid; grid-template-columns:160px auto; gap:12px; background:#0f1821; border:1px solid #1b2a36; border-radius:12px; overflow:hidden; }
-    .thumb { width:160px; height:90px; object-fit:cover; display:block; background:#0b1218; }
-    .meta { padding:10px 10px; display:flex; flex-direction:column; gap:6px; }
-    .title { font-size:16px; font-weight:700; line-height:1.3; }
-    .row { display:flex; gap:14px; align-items:center; flex-wrap:wrap; font-size:13px; color:#9eb1c1; }
-    .row a { color:#9bd3ff; text-decoration:none; }
-    #note { margin:10px 0; }
-    .err { color:#ffb4b4; white-space:pre-wrap; word-break:break-all; background:#2a0f13; border:1px solid #7a2730; padding:10px; border-radius:8px; }
+    :root{
+      --bg:#0b1218; --panel:#0f1821; --line:#1b2a36; --muted:#8ba0b0;
+      --fg:#e6eef6; --accent:#0ea5e9; --chip:#12202b; --chipline:#1c2b38;
+    }
+    *{box-sizing:border-box}
+    body{background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;margin:0}
+    .wrap{max-width:1080px;margin:28px auto;padding:0 16px}
+    h1{margin:0 0 16px;display:flex;gap:10px;align-items:center;font-size:28px;color:#bfe3ff}
+    .tabs{display:flex;gap:8px;margin:12px 0 18px}
+    .tabs button{background:var(--chip);border:1px solid var(--chipline);color:var(--fg);padding:8px 12px;border-radius:10px;cursor:pointer}
+    .tabs button.active{background:var(--accent);border-color:var(--accent);color:#07131a;font-weight:700}
+    .bar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+    input,select,button{background:#0f1520;border:1px solid #2a3347;color:var(--fg);padding:10px 12px;border-radius:10px}
+    input[type="number"]{width:90px}
+    button.primary{background:var(--accent);border-color:var(--accent);color:#061017;font-weight:700;cursor:pointer}
+    .muted{color:var(--muted);font-size:12px}
+    #note{margin:6px 0 10px}
+    #err .box{white-space:pre-wrap;word-break:break-all;background:#2a0f13;border:1px solid #7a2730;color:#ffd6d6;padding:10px;border-radius:8px}
+    .grid{display:grid;gap:12px}
+    .card{display:grid;grid-template-columns:160px auto;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+    .thumb{width:160px;height:90px;object-fit:cover;background:#0b1218}
+    .meta{padding:10px;display:flex;flex-direction:column;gap:8px}
+    .title{font-size:16px;font-weight:800;line-height:1.35}
+    .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-size:13px;color:#a8bed0}
+    .row a{color:#9bd3ff;text-decoration:none}
+    .chip{background:var(--chip);border:1px solid var(--chipline);border-radius:999px;padding:3px 10px}
+    .delta{background:#12321f;border-color:#1f6a3c;color:#a8f0c4}
+    .hint{margin:4px 0 14px}
+    .hide{display:none !important}
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>🔎 YouTube 키워드 검색</h1>
+    <h1>🔎 YouTube 키워드/랭킹 대시보드</h1>
 
     <!-- 모드 탭 -->
-    <div class="pill" id="modes">
-      <button data-mode="search" class="active">검색</button>
-      <button data-mode="trending">실시간</button>
+    <div class="tabs" id="tabs">
+      <button data-mode="search"   class="active">검색</button>
+      <button data-mode="trending">실시간(유튜브)</button>
       <button data-mode="weekly">주간</button>
+      <button data-mode="realtime">실시간(증가량)</button>
     </div>
 
     <!-- 옵션 바 -->
     <div class="bar">
-      <input id="q" placeholder="예: 쇼핑 / AI / 드라마" style="flex:1 1 360px" />
+      <input id="q" placeholder="키워드 (예: 정치 / 드라마 / AI)" style="flex:1 1 360px">
       <select id="region">
         <option value="">글로벌(US)</option>
-        <option value="KR">국내(KR)</option>
+        <option value="KR" selected>국내(KR)</option>
         <option value="US">미국(US)</option>
         <option value="JP">일본(JP)</option>
         <option value="IN">인도(IN)</option>
         <option value="GB">영국(GB)</option>
       </select>
       <select id="duration">
-        <option value="any">전체</option>
+        <!-- YouTube API 표준: short<4분, medium 4~20분, long>20분 -->
+        <option value="any" selected>길이: 전체</option>
         <option value="short">짧음 (&lt;4분)</option>
         <option value="medium">중간 (4~20분)</option>
         <option value="long">김 (&gt;20분)</option>
       </select>
-      <label class="muted">기간(days)</label>
-      <input id="days" type="number" min="1" value="5" />
-      <label class="muted">개수</label>
-      <input id="max" type="number" min="1" max="50" value="10" />
-      <button id="go">실행</button>
+
+      <!-- 기간/윈도/개수 -->
+      <span id="label-days" class="muted">기간(days)</span>
+      <input id="days" type="number" min="1" max="30" value="5" title="검색/주간에서 사용">
+
+      <span id="label-window" class="muted hide">윈도(분)</span>
+      <input id="window" type="number" min="5" max="1440" value="60" class="hide" title="실시간(증가량)에서 사용">
+
+      <span class="muted">개수</span>
+      <input id="max" type="number" min="1" max="50" value="50">
+
+      <button id="go" class="primary">실행</button>
     </div>
+
+    <div id="hint" class="muted hint">검색: 최근 5일 + 조회수순 (days로 조절). 실시간(증가량)은 최근 60분 증가량 기준.</div>
 
     <div id="note" class="muted"></div>
     <div id="err"></div>
 
     <div id="list" class="grid"></div>
-
   </div>
 
   <script>
+    // ===== helpers =====
     const $ = s => document.querySelector(s);
-    const modes = $("#modes");
-    let currentMode = "search"; // 기본 검색
+    const nf = new Intl.NumberFormat("ko-KR");
+    function esc(s){ return (s||"").replace(/[&<>"]/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;" }[c])); }
+    function show(el, on){ el.classList.toggle("hide", !on); }
+    function setModeUI(mode){
+      // 탭 표시
+      [...$("#tabs").children].forEach(b=>b.classList.toggle("active", b.dataset.mode===mode));
+      // 입력 가시성
+      // 검색/주간: days 사용 / 실시간(유튜브): days 숨김 / 실시간(증가량): window 사용
+      show($("#label-days"), mode==="search" || mode==="weekly");
+      show($("#days"),       mode==="search" || mode==="weekly");
 
-    // 모드 탭 클릭
-    modes.addEventListener("click", (e) => {
-      if (e.target.tagName !== "BUTTON") return;
-      [...modes.children].forEach(b => b.classList.remove("active"));
-      e.target.classList.add("active");
-      currentMode = e.target.dataset.mode;
-      // 모드에 따라 days 기본값 표시 변경 (검색 5일, 주간 7일)
-      if (currentMode === "weekly") $("#days").value = 7; else $("#days").value = 5;
+      const realtime = (mode==="realtime");
+      show($("#label-window"), realtime);
+      show($("#window"), realtime);
+
+      // 검색/주간은 키워드 옵션 유효, 실시간(유튜브/증가량)에서는 선택사항
+      $("#hint").textContent =
+        mode==="search"  ? "검색: 최근 days일 + 조회수순. duration=short/medium/long 선택 가능."
+      : mode==="weekly"  ? "주간: 최근 days일(기본 7) + 조회수순."
+      : mode==="trending"? "실시간(유튜브): 국가별 mostPopular. duration/기간 필터 미지원."
+      : "실시간(증가량): 최근 window분 조회수 증가량 기준(수집 잡 필요).";
+    }
+
+    // ===== state =====
+    let mode = "search"; // search | trending | weekly | realtime
+    setModeUI(mode);
+
+    // 탭 핸들링
+    $("#tabs").addEventListener("click", e=>{
+      if(e.target.tagName!=="BUTTON") return;
+      mode = e.target.dataset.mode;
+      setModeUI(mode);
       $("#note").textContent = "";
-      $("#err").textContent = "";
+      $("#err").innerHTML = "";
       $("#list").innerHTML = "";
+      // 모드 전환시 기본값 보정
+      if(mode==="weekly" && !$("#days").value) $("#days").value = 7;
+      if(mode==="search" && !$("#days").value) $("#days").value = 5;
     });
 
-    // 실행 버튼
-    $("#go").addEventListener("click", async () => {
-      $("#err").textContent = "";
-      $("#list").innerHTML = "";
-      const q = $("#q").value.trim();
-      const region = $("#region").value.trim();
-      const duration = $("#duration").value; // any|short|medium|long
-      const days = Math.max(1, parseInt($("#days").value || "5", 10));
-      const max = Math.min(50, Math.max(1, parseInt($("#max").value || "10", 10)));
+    // 실행
+    $("#go").addEventListener("click", run);
+    $("#q").addEventListener("keydown", e=>{ if(e.key==="Enter") run(); });
 
-      let url = "";
-      let note = "";
-      try {
-        if (currentMode === "search") {
-          if (!q) {
-            $("#err").innerHTML = `<div class="err">검색어(q)가 필요합니다.</div>`;
-            return;
-          }
-          const params = new URLSearchParams({ q, max, days, duration });
-          if (region) params.set("region", region);
-          url = "/search?" + params.toString();
-          note = `검색(최근 ${days}일, ${max}개)`;
-        } else if (currentMode === "trending") {
-          const params = new URLSearchParams({ max });
-          if (region) params.set("region", region);
-          url = "/trending?" + params.toString();
-          note = `실시간 인기(${region || "글로벌"})`;
-        } else if (currentMode === "weekly") {
-          const params = new URLSearchParams({ max, days, duration });
-          if (q) params.set("q", q);
-          if (region) params.set("region", region);
-          url = "/weekly?" + params.toString();
-          note = `주간 랭킹(최근 ${days}일, ${max}개, ${region || "글로벌"})`;
-        }
+    async function run(){
+      $("#err").innerHTML = ""; $("#list").innerHTML = "";
+      const q   = $("#q").value.trim();
+      const reg = $("#region").value.trim();
+      const dur = $("#duration").value;   // any|short|medium|long
+      const max = Math.min(50, Math.max(1, parseInt($("#max").value||"50",10)));
+      const days= Math.min(30, Math.max(1, parseInt($("#days").value||"5",10)));
+      const win = Math.min(1440, Math.max(5, parseInt($("#window").value||"60",10)));
 
-        $("#note").textContent = note + " … 불러오는 중";
+      let url="", title="";
+      if(mode==="search"){
+        if(!q){ $("#err").innerHTML = `<div class="box">검색어(q)가 필요합니다.</div>`; return; }
+        const p = new URLSearchParams({ q, max, days, duration: dur });
+        if(reg) p.set("region", reg);
+        url = "/search?" + p.toString();
+        title = `검색 · 최근 ${days}일 · ${max}개`;
+      } else if(mode==="trending"){
+        const p = new URLSearchParams({ max });
+        if(reg) p.set("region", reg);
+        url = "/trending?" + p.toString();
+        title = `실시간(유튜브) · ${reg||"글로벌"} · ${max}개`;
+      } else if(mode==="weekly"){
+        const p = new URLSearchParams({ max, days, duration: dur });
+        if(q)   p.set("q", q);
+        if(reg) p.set("region", reg);
+        url = "/weekly?" + p.toString();
+        title = `주간 · 최근 ${days}일 · ${reg||"글로벌"} · ${max}개`;
+      } else { // realtime (증가량)
+        const p = new URLSearchParams({ max, window: win });
+        if(reg) p.set("region", reg);
+        url = "/realtime?" + p.toString();
+        title = `실시간(증가량) · 최근 ${win}분 · ${reg||"글로벌"} · ${max}개`;
+      }
 
-        const res = await fetch(url, { headers: { "Accept": "application/json" }});
+      $("#note").textContent = title + " … 불러오는 중";
+      try{
+        const res = await fetch(url, { headers: { "Accept":"application/json" }});
         const text = await res.text();
-
-        // JSON 파싱 실패 시 에러 본문 그대로 보여주기
         let data;
-        try {
-          data = JSON.parse(text);
-        } catch (e) {
-          $("#err").innerHTML = `<div class="err">서버 응답이 JSON이 아닙니다.\n\n${text}</div>`;
-          $("#note").textContent = "";
-          return;
-        }
+        try { data = JSON.parse(text); }
+        catch(e){ $("#err").innerHTML = `<div class="box">서버가 JSON이 아닌 응답을 보냈습니다.\n\n${esc(text)}</div>`; $("#note").textContent=""; return; }
 
-        if (!data || !Array.isArray(data.items)) {
-          $("#err").innerHTML = `<div class="err">API 응답 형식이 올바르지 않습니다.</div>`;
-          $("#note").textContent = "";
-          return;
-        }
-
-        renderList(data.items);
-        $("#note").textContent = `${note} – 결과 ${data.items.length}건`;
-      } catch (err) {
-        $("#err").innerHTML = `<div class="err">${String(err)}</div>`;
+        const items = Array.isArray(data.items) ? data.items : [];
+        render(items);
+        $("#note").textContent = `${title} — 결과 ${items.length}건`;
+      }catch(err){
+        $("#err").innerHTML = `<div class="box">${esc(String(err))}</div>`;
         $("#note").textContent = "";
       }
-    });
+    }
 
-    function renderList(items) {
+    function render(items){
       const box = $("#list");
-      box.innerHTML = "";
-      if (!items.length) {
-        box.innerHTML = `<div class="muted">결과가 없습니다.</div>`;
-        return;
-      }
-      for (const it of items) {
-        const el = document.createElement("div");
-        el.className = "card";
-        el.innerHTML = `
-          <img class="thumb" src="${it.thumb || ""}" alt="">
-          <div class="meta">
-            <div class="title">${escapeHtml(it.title || "")}</div>
-            <div class="row">
-              <span>채널: ${escapeHtml(it.channel || "")}</span>
-              <span>업로드: ${new Date(it.publishedAt || "").toLocaleString()}</span>
-              <span>조회수: ${number(it.viewCount || 0)}</span>
-              <a href="${it.url}" target="_blank" rel="noopener">영상 열기 ↗</a>
+      if(!items.length){ box.innerHTML = `<div class="muted">결과가 없습니다.</div>`; return; }
+      box.innerHTML = items.map(it=>{
+        const delta = (typeof it.delta==="number" && it.delta>0) ? `<span class="chip delta">+${nf.format(it.delta)}</span>` : "";
+        return `
+          <div class="card">
+            <img class="thumb" src="${esc(it.thumb||"")}" alt="">
+            <div class="meta">
+              <div class="title">${esc(it.title||"")}</div>
+              <div class="row">
+                <span class="chip">${esc(it.channel||"")}</span>
+                ${delta}
+                <span class="chip">조회수 ${nf.format(it.viewCount||0)}</span>
+                ${it.publishedAt? `<span class="chip">${new Date(it.publishedAt).toLocaleString("ko-KR")}</span>` : ""}
+                ${it.url? `<a class="chip" href="${esc(it.url)}" target="_blank" rel="noopener">영상 열기 ↗</a>` : ""}
+              </div>
             </div>
-          </div>
-        `;
-        box.appendChild(el);
-      }
-    }
-
-    function number(n) {
-      try { return (+n).toLocaleString(); } catch { return n; }
-    }
-    function escapeHtml(s) {
-      return (s || "").replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+          </div>`;
+      }).join("");
     }
   </script>
 </body>
