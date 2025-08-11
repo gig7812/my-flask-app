@@ -2,31 +2,55 @@ from flask import Flask, render_template, request, jsonify
 import os
 import requests
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder="templates")
 
-# 환경변수에서 API 키 불러오기
+# Render(서버) 환경변수에서 YouTube API 키 읽기
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
+
+@app.route("/health")
+def health():
+    return "ok", 200
 
 @app.route("/")
 def index():
-    return "Hello, Flask is running with Render!"
+    # / 접속 시 검색 UI 페이지
+    return render_template("index.html")
 
-# 유튜브 검색 API 예시 엔드포인트
 @app.route("/search")
 def search():
-    query = request.args.get("q")
+    # 예: /search?q=쇼핑
+    if not YOUTUBE_API_KEY:
+        return jsonify({"error": "YOUTUBE_API_KEY가 서버 환경변수에 설정되지 않았습니다."}), 500
+
+    query = (request.args.get("q") or "").strip()
     if not query:
-        return jsonify({"error": "검색어(q)가 필요합니다"}), 400
+        return jsonify({"error": "검색어(q)가 필요합니다. 예: /search?q=쇼핑"}), 400
 
     url = "https://www.googleapis.com/youtube/v3/search"
     params = {
+        "key": YOUTUBE_API_KEY,
         "part": "snippet",
         "q": query,
-        "key": YOUTUBE_API_KEY,
-        "maxResults": 5
+        "type": "video",
+        "order": "viewCount",
+        "maxResults": 10
     }
-    response = requests.get(url, params=params)
-    return jsonify(response.json())
+    r = requests.get(url, params=params, timeout=20)
+    r.raise_for_status()
+
+    items = []
+    for it in r.json().get("items", []):
+        vid = it["id"]["videoId"]
+        sn = it["snippet"]
+        items.append({
+            "title": sn["title"],
+            "channel": sn["channelTitle"],
+            "publishedAt": sn["publishedAt"],
+            "thumb": sn["thumbnails"]["medium"]["url"],
+            "url": f"https://www.youtube.com/watch?v={vid}"
+        })
+    return jsonify({"items": items})
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    # 로컬 실행용 (Render에선 gunicorn이 실행)
+    app.run(host="0.0.0.0", port=5000, debug=True)
