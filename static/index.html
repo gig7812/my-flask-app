@@ -2,123 +2,189 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>YouTube 키워드 검색</title>
   <style>
-    body{background:#0b1116;color:#dbe7ff;font-family:system-ui,Arial,sans-serif;margin:0}
-    h1{margin:16px;color:#9ecbff}
-    .bar{display:flex;gap:8px;flex-wrap:wrap;margin:10px 16px}
-    input,select,button{padding:9px;border-radius:10px;border:1px solid #2a3347;background:#0f1520;color:#dbe7ff}
-    button{cursor:pointer}
-    .muted{color:#9fb3c8;font-size:12px;margin:0 16px 8px}
-    .card{display:flex;gap:12px;align-items:flex-start;background:#111826;border:1px solid #1e2633;border-radius:12px;padding:12px;margin:12px 16px}
-    .thumb{width:160px;height:90px;object-fit:cover;border-radius:8px}
-    .title{font-weight:700;margin:0 0 6px}
-    a{color:#93c5fd;text-decoration:none}
-    a:hover{text-decoration:underline}
-    .row-top{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
-    .pill{background:#0f1520;border:1px solid #2a3347;border-radius:999px;padding:3px 10px;font-size:12px;color:#9fb3c8}
+    body { background:#0b1218; color:#dfe6ee; font-family:system-ui, -apple-system, Segoe UI, Roboto, Arial; margin:0; }
+    .wrap { max-width:1080px; margin:28px auto; padding:0 16px; }
+    h1 { font-size:28px; margin:0 0 16px 0; display:flex; gap:8px; align-items:center; }
+    .pill { display:inline-flex; gap:8px; margin:12px 0 20px 0; }
+    .pill button { background:#12202b; color:#dfe6ee; border:1px solid #1c2b38; padding:8px 12px;
+                   border-radius:10px; cursor:pointer; }
+    .pill button.active { background:#0ea5e9; border-color:#0ea5e9; color:#061017; }
+    .bar { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; }
+    input, select { background:#0f1a22; border:1px solid #1c2b38; color:#dfe6ee;
+                    padding:10px 12px; border-radius:10px; }
+    input[type="number"] { width:80px; }
+    #go { background:#0ea5e9; border: none; color: #061017; font-weight:600; }
+    .muted { color:#7d8b99; font-size:12px; }
+    .grid { display:grid; gap:12px; }
+    .card { display:grid; grid-template-columns:160px auto; gap:12px; background:#0f1821; border:1px solid #1b2a36; border-radius:12px; overflow:hidden; }
+    .thumb { width:160px; height:90px; object-fit:cover; display:block; background:#0b1218; }
+    .meta { padding:10px 10px; display:flex; flex-direction:column; gap:6px; }
+    .title { font-size:16px; font-weight:700; line-height:1.3; }
+    .row { display:flex; gap:14px; align-items:center; flex-wrap:wrap; font-size:13px; color:#9eb1c1; }
+    .row a { color:#9bd3ff; text-decoration:none; }
+    #note { margin:10px 0; }
+    .err { color:#ffb4b4; white-space:pre-wrap; word-break:break-all; background:#2a0f13; border:1px solid #7a2730; padding:10px; border-radius:8px; }
   </style>
 </head>
 <body>
-  <h1>🔎 YouTube 키워드 검색</h1>
+  <div class="wrap">
+    <h1>🔎 YouTube 키워드 검색</h1>
 
-  <div class="bar">
-    <button id="btnSearch">검색</button>
-    <button id="btnTrend">실시간</button>
-    <button id="btnWeekly">주간</button>
+    <!-- 모드 탭 -->
+    <div class="pill" id="modes">
+      <button data-mode="search" class="active">검색</button>
+      <button data-mode="trending">실시간</button>
+      <button data-mode="weekly">주간</button>
+    </div>
 
-    <select id="selRegion">
-      <option value="">글로벌(기본)</option>
-      <option value="KR" selected>국내(KR)</option>
-      <option value="US">미국(US)</option>
-      <option value="JP">일본(JP)</option>
-      <option value="IN">인도(IN)</option>
-    </select>
+    <!-- 옵션 바 -->
+    <div class="bar">
+      <input id="q" placeholder="예: 쇼핑 / AI / 드라마" style="flex:1 1 360px" />
+      <select id="region">
+        <option value="">글로벌(US)</option>
+        <option value="KR">국내(KR)</option>
+        <option value="US">미국(US)</option>
+        <option value="JP">일본(JP)</option>
+        <option value="IN">인도(IN)</option>
+        <option value="GB">영국(GB)</option>
+      </select>
+      <select id="duration">
+        <option value="any">전체</option>
+        <option value="short">짧음 (&lt;4분)</option>
+        <option value="medium">중간 (4~20분)</option>
+        <option value="long">김 (&gt;20분)</option>
+      </select>
+      <label class="muted">기간(days)</label>
+      <input id="days" type="number" min="1" value="5" />
+      <label class="muted">개수</label>
+      <input id="max" type="number" min="1" max="50" value="10" />
+      <button id="go">실행</button>
+    </div>
 
-    <select id="selDuration">
-      <option value="any" selected>전체</option>
-      <option value="short">숏폼(<=4분)</option>
-      <option value="long">롱폼(>20분)</option>
-    </select>
+    <div id="note" class="muted"></div>
+    <div id="err"></div>
 
-    <input id="q" placeholder="예: 쇼핑 / AI / 드라마" style="flex:1;min-width:240px" />
-    <button id="run">실행</button>
+    <div id="list" class="grid"></div>
+
   </div>
 
-  <p class="muted" id="note">결과 0건 (최대 50개)</p>
-  <div id="list"></div>
-
   <script>
-    const $ = (sel) => document.querySelector(sel);
-    const $list = $("#list");
-    const $note = $("#note");
-    let mode = "search"; // search | trending | weekly
+    const $ = s => document.querySelector(s);
+    const modes = $("#modes");
+    let currentMode = "search"; // 기본 검색
 
-    // 숫자 포맷팅
-    const nf = new Intl.NumberFormat("ko-KR");
+    // 모드 탭 클릭
+    modes.addEventListener("click", (e) => {
+      if (e.target.tagName !== "BUTTON") return;
+      [...modes.children].forEach(b => b.classList.remove("active"));
+      e.target.classList.add("active");
+      currentMode = e.target.dataset.mode;
+      // 모드에 따라 days 기본값 표시 변경 (검색 5일, 주간 7일)
+      if (currentMode === "weekly") $("#days").value = 7; else $("#days").value = 5;
+      $("#note").textContent = "";
+      $("#err").textContent = "";
+      $("#list").innerHTML = "";
+    });
 
-    function render(items){
-      // 안전: 프론트에서도 조회수 내림차순 정렬 보장
-      items.sort((a,b) => (b.viewCount||0) - (a.viewCount||0));
-
-      $note.textContent = `결과 ${items.length}건 (최대 50개)`;
-      $list.innerHTML = items.map(it => `
-        <div class="card">
-          <img class="thumb" src="${it.thumb}" alt="">
-          <div>
-            <a class="title" href="${it.url}" target="_blank" rel="noopener">${it.title}</a>
-            <div class="row-top">
-              <span class="pill">${it.channel || ""}</span>
-              <span class="pill">조회수 ${nf.format(it.viewCount || 0)}</span>
-              <span class="pill">${new Date(it.publishedAt).toLocaleString("ko-KR")}</span>
-              <a class="pill" href="${it.url}" target="_blank" rel="noopener">영상 열기</a>
-            </div>
-          </div>
-        </div>
-      `).join("");
-    }
-
-    async function go(){
+    // 실행 버튼
+    $("#go").addEventListener("click", async () => {
+      $("#err").textContent = "";
+      $("#list").innerHTML = "";
       const q = $("#q").value.trim();
-      const region = $("#selRegion").value;
-      const duration = $("#selDuration").value;
+      const region = $("#region").value.trim();
+      const duration = $("#duration").value; // any|short|medium|long
+      const days = Math.max(1, parseInt($("#days").value || "5", 10));
+      const max = Math.min(50, Math.max(1, parseInt($("#max").value || "10", 10)));
 
       let url = "";
-      if(mode === "search"){
-        if(!q){ alert("검색어를 입력하세요."); return; }
-        // 백엔드 기본값이 50 & viewCount 정렬이지만, 확실히 max=50 전달
-        url = `/search?q=${encodeURIComponent(q)}&region=${region}&duration=${duration}&max=50`;
-      }else if(mode === "trending"){
-        url = `/trending?region=${region}&max=50`;
-      }else if(mode === "weekly"){
-        // 주간은 q가 있어도 되고 없어도 됨
-        const qs = q ? `&q=${encodeURIComponent(q)}` : "";
-        url = `/weekly?region=${region}${qs}&duration=${duration}&max=50`;
+      let note = "";
+      try {
+        if (currentMode === "search") {
+          if (!q) {
+            $("#err").innerHTML = `<div class="err">검색어(q)가 필요합니다.</div>`;
+            return;
+          }
+          const params = new URLSearchParams({ q, max, days, duration });
+          if (region) params.set("region", region);
+          url = "/search?" + params.toString();
+          note = `검색(최근 ${days}일, ${max}개)`;
+        } else if (currentMode === "trending") {
+          const params = new URLSearchParams({ max });
+          if (region) params.set("region", region);
+          url = "/trending?" + params.toString();
+          note = `실시간 인기(${region || "글로벌"})`;
+        } else if (currentMode === "weekly") {
+          const params = new URLSearchParams({ max, days, duration });
+          if (q) params.set("q", q);
+          if (region) params.set("region", region);
+          url = "/weekly?" + params.toString();
+          note = `주간 랭킹(최근 ${days}일, ${max}개, ${region || "글로벌"})`;
+        }
+
+        $("#note").textContent = note + " … 불러오는 중";
+
+        const res = await fetch(url, { headers: { "Accept": "application/json" }});
+        const text = await res.text();
+
+        // JSON 파싱 실패 시 에러 본문 그대로 보여주기
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch (e) {
+          $("#err").innerHTML = `<div class="err">서버 응답이 JSON이 아닙니다.\n\n${text}</div>`;
+          $("#note").textContent = "";
+          return;
+        }
+
+        if (!data || !Array.isArray(data.items)) {
+          $("#err").innerHTML = `<div class="err">API 응답 형식이 올바르지 않습니다.</div>`;
+          $("#note").textContent = "";
+          return;
+        }
+
+        renderList(data.items);
+        $("#note").textContent = `${note} – 결과 ${data.items.length}건`;
+      } catch (err) {
+        $("#err").innerHTML = `<div class="err">${String(err)}</div>`;
+        $("#note").textContent = "";
       }
+    });
 
-      $note.textContent = "검색 중…";
-      $list.innerHTML = "";
-
-      try{
-        const r = await fetch(url);
-        const j = await r.json();
-        // 혹시 items 누락 대비
-        const items = Array.isArray(j.items) ? j.items : [];
-        render(items);
-      }catch(e){
-        console.error(e);
-        $note.textContent = "오류가 발생했습니다.";
+    function renderList(items) {
+      const box = $("#list");
+      box.innerHTML = "";
+      if (!items.length) {
+        box.innerHTML = `<div class="muted">결과가 없습니다.</div>`;
+        return;
+      }
+      for (const it of items) {
+        const el = document.createElement("div");
+        el.className = "card";
+        el.innerHTML = `
+          <img class="thumb" src="${it.thumb || ""}" alt="">
+          <div class="meta">
+            <div class="title">${escapeHtml(it.title || "")}</div>
+            <div class="row">
+              <span>채널: ${escapeHtml(it.channel || "")}</span>
+              <span>업로드: ${new Date(it.publishedAt || "").toLocaleString()}</span>
+              <span>조회수: ${number(it.viewCount || 0)}</span>
+              <a href="${it.url}" target="_blank" rel="noopener">영상 열기 ↗</a>
+            </div>
+          </div>
+        `;
+        box.appendChild(el);
       }
     }
 
-    $("#btnSearch").onclick  = () => { mode = "search";  };
-    $("#btnTrend").onclick   = () => { mode = "trending"; };
-    $("#btnWeekly").onclick  = () => { mode = "weekly";  };
-    $("#run").onclick        = go;
-
-    // 엔터키로 실행
-    $("#q").addEventListener("keydown", (e) => { if(e.key === "Enter") go(); });
+    function number(n) {
+      try { return (+n).toLocaleString(); } catch { return n; }
+    }
+    function escapeHtml(s) {
+      return (s || "").replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+    }
   </script>
 </body>
 </html>
