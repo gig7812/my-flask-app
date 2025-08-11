@@ -8,7 +8,6 @@ app = Flask(__name__, static_url_path="", static_folder="static")
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 YT_BASE = "https://www.googleapis.com/youtube/v3"
 
-
 # ----------------- 공용 유틸 -----------------
 def yt_get(path, params):
     if not YOUTUBE_API_KEY:
@@ -18,7 +17,6 @@ def yt_get(path, params):
     r = requests.get(f"{YT_BASE}/{path}", params=p, timeout=20)
     r.raise_for_status()
     return r.json()
-
 
 def fetch_view_counts(video_ids):
     """videos.list로 viewCount 가져오기"""
@@ -30,36 +28,37 @@ def fetch_view_counts(video_ids):
         out[it["id"]] = int(it.get("statistics", {}).get("viewCount", 0))
     return out
 
-
 # ----------------- 헬스체크/정적 -----------------
 @app.route("/health")
 def health():
     return "ok", 200
 
-
 @app.route("/")
 def home():
     return send_from_directory("static", "index.html")
 
-
-# ----------------- 검색 (국가/숏폼·롱폼/50개) -----------------
-# 예) /search?q=정치&region=KR&duration=any|short|long
+# ----------------- 검색 (국가/숏폼·롱폼/50개/기간지정) -----------------
+# 예) /search?q=정치&region=KR&duration=short&days=3
 @app.route("/search")
 def search():
     q = (request.args.get("q") or "").strip()
     region = (request.args.get("region") or "").upper().strip()
     duration = (request.args.get("duration") or "any").lower()  # any|short|long
+    days = int(request.args.get("days", 5))  # 기본값 5일
     max_results = min(int(request.args.get("max", 50)), 50)
 
     if not q:
         return jsonify({"items": []})
+
+    published_after = (dt.datetime.utcnow() - dt.timedelta(days=days)).isoformat("T") + "Z"
 
     params = {
         "part": "snippet",
         "type": "video",
         "q": q,
         "maxResults": max_results,
-        "order": "viewCount",        # ★ 조회수 순
+        "order": "viewCount",        # 조회수 순
+        "publishedAfter": published_after,
         "safeSearch": "none",
     }
     if region:
@@ -88,13 +87,10 @@ def search():
             "url": f"https://www.youtube.com/watch?v={vid}",
             "viewCount": vc_map.get(vid, 0)
         })
-    # 안전하게 한 번 더 정렬 (혹시 API가 순서를 바꿔돌릴 때 대비)
     items.sort(key=lambda x: x["viewCount"], reverse=True)
     return jsonify({"items": items})
 
-
-# ----------------- 실시간 랭킹 (국가/50개) -----------------
-# 예) /trending?region=KR
+# ----------------- 실시간 랭킹 -----------------
 @app.route("/trending")
 def trending():
     region = (request.args.get("region") or "KR").upper().strip()
@@ -123,22 +119,21 @@ def trending():
     items.sort(key=lambda x: x["viewCount"], reverse=True)
     return jsonify({"items": items})
 
-
-# ----------------- 주간 랭킹 (최근7일/국가/옵션:키워드/숏폼·롱폼/50개) -----------------
-# 예) /weekly?region=KR&q=정치&duration=any|short|long
+# ----------------- 주간 랭킹 (기본 7일) -----------------
 @app.route("/weekly")
 def weekly():
     region = (request.args.get("region") or "KR").upper().strip()
     q = (request.args.get("q") or "").strip()
     duration = (request.args.get("duration") or "any").lower()
+    days = int(request.args.get("days", 7))  # 기본값 7일
     max_results = min(int(request.args.get("max", 50)), 50)
 
-    published_after = (dt.datetime.utcnow() - dt.timedelta(days=7)).isoformat("T") + "Z"
+    published_after = (dt.datetime.utcnow() - dt.timedelta(days=days)).isoformat("T") + "Z"
 
     params = {
         "part": "snippet",
         "type": "video",
-        "order": "viewCount",      # 지난 7일 내 조회수 상위
+        "order": "viewCount",
         "maxResults": max_results,
         "regionCode": region,
         "publishedAfter": published_after,
@@ -170,7 +165,6 @@ def weekly():
         })
     items.sort(key=lambda x: x["viewCount"], reverse=True)
     return jsonify({"items": items})
-
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
