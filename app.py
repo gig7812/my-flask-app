@@ -44,28 +44,32 @@ def home():
     return send_from_directory("static", "index.html")
 
 
-# ---------- 검색 (UI 그대로 유지, 결과에 viewCount 추가만) ----------
+# ---------- 키워드 검색 (국가 구분 지원, 결과에 viewCount 포함) ----------
+# 예: /search?q=정치&region=KR
 @app.route("/search")
 def search():
     if not YOUTUBE_API_KEY:
         return jsonify({"error": "YOUTUBE_API_KEY is not set"}), 500
 
     q = (request.args.get("q") or "").strip()
+    region = (request.args.get("region") or "").upper().strip()  # 예: KR, US, JP...
     if not q:
         return jsonify({"items": []})
 
-    # 1) 키워드 검색 (조회수 높은 순)
-    data = yt_get("search", {
+    params = {
         "part": "snippet",
         "q": q,
         "type": "video",
         "order": "viewCount",
         "maxResults": 10
-    })
+    }
+    if region:
+        params["regionCode"] = region
+
+    data = yt_get("search", params)
     items_raw = data.get("items", [])
     video_ids = [it["id"]["videoId"] for it in items_raw if it["id"].get("videoId")]
 
-    # 2) 각 비디오 조회수
     vc_map = fetch_view_counts(video_ids)
 
     items = []
@@ -78,13 +82,13 @@ def search():
             "publishedAt": sn["publishedAt"],
             "thumb": sn["thumbnails"]["medium"]["url"],
             "url": f"https://www.youtube.com/watch?v={vid}",
-            "viewCount": vc_map.get(vid, 0)  # ← 추가 필드 (UI는 그대로)
+            "viewCount": vc_map.get(vid, 0)
         })
     return jsonify({"items": items})
 
 
 # ---------- 실시간(국가별 트렌딩) ----------
-# 사용 예: /trending?region=KR
+# 예: /trending?region=KR
 @app.route("/trending")
 def trending():
     if not YOUTUBE_API_KEY:
@@ -115,8 +119,8 @@ def trending():
     return jsonify({"items": items})
 
 
-# ---------- 주간 랭킹(최근 7일 업로드 + 조회수순) ----------
-# 사용 예: /weekly?region=KR&q=정치   (q는 선택)
+# ---------- 주간 랭킹(최근 7일 업로드 + 조회수순, 국가/키워드 옵션) ----------
+# 예: /weekly?region=KR&q=정치   (q는 선택)
 @app.route("/weekly")
 def weekly():
     if not YOUTUBE_API_KEY:
