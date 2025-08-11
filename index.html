@@ -38,6 +38,7 @@ $("#go").onclick = async ()=>{
   try{
     const r = await fetch(`/search?q=${encodeURIComponent(q)}`);
     const data = await r.json();
+    if(data.error){ $("#note").textContent = data.error; return; }
     const items = data.items || [];
     $("#note").textContent = `결과 ${items.length}건`;
     items.forEach(it=>{
