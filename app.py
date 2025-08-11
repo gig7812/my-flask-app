@@ -4,7 +4,7 @@ import requests
 
 app = Flask(__name__, template_folder="templates")
 
-# Render 대시보드(Environment)에 넣은 키를 읽음
+# Render(서버)에서 넣은 환경변수
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 
 @app.route("/health")
@@ -13,7 +13,7 @@ def health():
 
 @app.route("/")
 def index():
-    # / 접속 시 UI 페이지
+    # / 접속 시 HTML 화면
     return render_template("index.html")
 
 @app.route("/search")
@@ -35,7 +35,6 @@ def search():
         "order": "viewCount",
         "maxResults": 10
     }
-
     try:
         r = requests.get(url, params=params, timeout=20)
         r.raise_for_status()
@@ -56,5 +55,5 @@ def search():
     return jsonify({"items": items})
 
 if __name__ == "__main__":
-    # 로컬 실행용 (Render에선 Procfile의 gunicorn이 실행)
+    # 로컬 실행용 (Render에선 Procfile의 gunicorn이 실행됨)
     app.run(host="0.0.0.0", port=5000, debug=True)
